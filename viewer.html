@@ -10,15 +10,13 @@
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #f0f2f5; }
         #map { height: 100vh; width: 100vw; }
-        .overlay-info { position: absolute; top: 15px; left: 15px; z-index: 1000; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 15px; color: #333; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #fff; min-width: 200px; }
+        .overlay-info { position: absolute; top: 15px; left: 15px; z-index: 1000; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #fff; min-width: 200px; }
         .badge-live { background: #ff4757; color: #fff; padding: 4px 10px; border-radius: 5px; font-size: 11px; font-weight: bold; animation: blink 1s infinite; display: inline-block; }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        
-        /* Marker Foto Profil Lingkaran */
         .leaflet-marker-photo { width: 55px; height: 55px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 10px rgba(0,0,0,0.3); overflow: hidden; background: #fff; }
         .leaflet-marker-photo img { width: 100%; height: 100%; object-fit: cover; }
         .gmaps-btn { background: #4285F4; color: #fff; border: none; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: bold; margin-top: 10px; display: block; text-decoration: none; text-align: center; }
-        .custom-tooltip { background: #fff; color: #333; border: 1px solid #ddd; border-radius: 4px; padding: 2px 8px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .custom-tooltip { background: #fff; color: #333; border: 1px solid #ddd; border-radius: 4px; padding: 2px 8px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -27,13 +25,10 @@
         <div class="small text-muted mb-2">Grup: <span id="sessId" class="text-dark fw-bold">...</span></div>
         <div id="userCount" class="badge-live d-none">MENCARI ANGGOTA...</div>
     </div>
-
     <div id="map"></div>
-
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyDGTvoDJRKbDA9tslkAX3l6QNz0jFmOPXo",
@@ -44,19 +39,13 @@
             messagingSenderId: "639805343280",
             appId: "1:639805343280:web:13c6e1cc94d480002b8ff5"
         };
-        
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
-
         let map, markers = {}; 
         const urlParams = new URLSearchParams(window.location.search);
         const sessionId = urlParams.get('session');
 
-        if (sessionId) {
-            document.getElementById('sessId').textContent = sessionId;
-            initMap();
-            listenToGroup();
-        }
+        if (sessionId) { document.getElementById('sessId').textContent = sessionId; initMap(); listenToGroup(); }
 
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([-2.5489, 118.0149], 5);
@@ -69,61 +58,29 @@
             groupRef.on('value', (snapshot) => {
                 const users = snapshot.val();
                 if (!users) return;
-
                 let bounds = L.latLngBounds();
                 let activeCount = 0;
-
                 for (let name in users) {
                     const data = users[name];
                     const pos = data.position;
                     const photo = data.photoURL || 'https://www.w3schools.com/howto/img_avatar.png';
-
                     if (Date.now() > data.expires) {
                         if (markers[name]) { map.removeLayer(markers[name]); delete markers[name]; }
                         continue;
                     }
-
                     activeCount++;
                     const latlng = [pos.lat, pos.lng];
                     bounds.extend(latlng);
-
-                    const gMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${pos.lat},${pos.lng}`;
-
-                    const photoIcon = L.divIcon({
-                        className: 'leaflet-marker-photo',
-                        html: `<img src="${photo}">`,
-                        iconSize: [55, 55],
-                        iconAnchor: [27, 27],
-                        popupAnchor: [0, -27]
-                    });
-
+                    const photoIcon = L.divIcon({ className: 'leaflet-marker-photo', html: `<img src="${photo}">`, iconSize: [55, 55], iconAnchor: [27, 27], popupAnchor: [0, -27] });
                     if (markers[name]) {
                         markers[name].setLatLng(latlng);
-                        markers[name].getPopup().setContent(`
-                            <div class="text-center" style="width:160px">
-                                <img src="${photo}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid #4a6ee0">
-                                <br><b>${name}</b><br>
-                                <a href="${gMapsUrl}" target="_blank" class="gmaps-btn text-white">Buka Rute Maps</a>
-                            </div>
-                        `);
                     } else {
                         markers[name] = L.marker(latlng, { icon: photoIcon }).addTo(map)
                             .bindTooltip(name, { permanent: true, direction: 'top', className: 'custom-tooltip' })
-                            .bindPopup(`
-                                <div class="text-center" style="width:160px">
-                                    <img src="${photo}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid #4a6ee0">
-                                    <br><b>${name}</b><br>
-                                    <a href="${gMapsUrl}" target="_blank" class="gmaps-btn text-white">Buka Rute Maps</a>
-                                </div>
-                            `);
+                            .bindPopup(`<div class="text-center" style="width:160px"><img src="${photo}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid #4a6ee0"><br><b>${name}</b><br><a href="https://www.google.com/maps/dir/?api=1&destination=${pos.lat},${pos.lng}" target="_blank" class="gmaps-btn text-white">Buka Rute Maps</a></div>`);
                     }
                 }
-
-                if (activeCount > 0) {
-                    map.fitBounds(bounds, { padding: [100, 100], maxZoom: 17 });
-                    document.getElementById('userCount').textContent = `${activeCount} ONLINE`;
-                    document.getElementById('userCount').classList.remove('d-none');
-                }
+                if (activeCount > 0) { map.fitBounds(bounds, { padding: [100, 100], maxZoom: 17 }); document.getElementById('userCount').textContent = `${activeCount} ONLINE`; document.getElementById('userCount').classList.remove('d-none'); }
             });
         }
     </script>
