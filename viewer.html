@@ -3,23 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>👁️ Pantau Grup - Mode Satelit</title>
+    <title>👁️ Pantau Grup Satelit</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { background-color: #000; margin: 0; padding: 0; }
+        body { background-color: #000; margin: 0; padding: 0; overflow: hidden; }
         #map { height: 100vh; width: 100vw; }
-        .overlay-info { position: absolute; top: 15px; left: 15px; z-index: 1000; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 15px; color: #fff; border: 1px solid #444; min-width: 200px; }
-        .badge-live { background: #ff0000; color: #fff; padding: 4px 10px; border-radius: 5px; font-size: 10px; letter-spacing: 1px; animation: blink 1s infinite; }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
-        .gmaps-btn { background: #4285F4; color: #fff; border: none; padding: 8px 12px; border-radius: 5px; font-size: 12px; font-weight: bold; margin-top: 10px; display: block; text-decoration: none; text-align: center; }
-        .gmaps-btn:hover { background: #3367d6; color: white; }
+        .overlay-info { position: absolute; top: 15px; left: 15px; z-index: 1000; background: rgba(0,0,0,0.85); padding: 15px; border-radius: 15px; color: #fff; border: 1px solid #444; }
+        .badge-live { background: #ff4757; color: #fff; padding: 4px 10px; border-radius: 5px; font-size: 11px; font-weight: bold; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        
+        /* Marker Foto Profil Lingkaran */
+        .leaflet-marker-photo { width: 55px; height: 55px; border-radius: 50%; border: 3px solid #00cfef; box-shadow: 0 0 10px rgba(0,207,239,0.5); overflow: hidden; background: #333; }
+        .leaflet-marker-photo img { width: 100%; height: 100%; object-fit: cover; }
+        .gmaps-btn { background: #4285F4; color: #fff; border: none; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: bold; margin-top: 10px; display: block; text-decoration: none; text-align: center; }
     </style>
 </head>
 <body>
-    <div class="overlay-info">
-        <h6 class="mb-1"><i class="fas fa-globe-asia text-info me-2"></i>Monitor Satelit</h6>
+    <div class="overlay-info text-center">
+        <h6 class="mb-1 text-info"><i class="fas fa-globe-asia me-2"></i>Live Monitoring</h6>
         <div class="small text-muted mb-2">Grup: <span id="sessId" class="text-white">...</span></div>
         <div id="userCount" class="badge-live d-none">MENCARI ANGGOTA...</div>
     </div>
@@ -56,12 +59,8 @@
 
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([-2.5489, 118.0149], 5);
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}').addTo(map);
             L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-            // MODE SATELIT REAL-TIME
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                attribution: 'Esri World Imagery'
-            }).addTo(map);
         }
 
         function listenToGroup() {
@@ -77,6 +76,7 @@
                 for (let name in users) {
                     const data = users[name];
                     const pos = data.position;
+                    const photo = data.photoURL || 'https://www.w3schools.com/howto/img_avatar.png';
 
                     if (Date.now() > data.expires) {
                         if (markers[name]) { map.removeLayer(markers[name]); delete markers[name]; }
@@ -87,37 +87,40 @@
                     const latlng = [pos.lat, pos.lng];
                     bounds.extend(latlng);
 
-                    // Link Google Maps untuk Redirect
-                    const gMapsLink = `https://www.google.com/maps/dir/?api=1&destination=${pos.lat},${pos.lng}`;
+                    const gMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${pos.lat},${pos.lng}`;
+
+                    const photoIcon = L.divIcon({
+                        className: 'leaflet-marker-photo',
+                        html: `<img src="${photo}">`,
+                        iconSize: [55, 55],
+                        iconAnchor: [27, 27],
+                        popupAnchor: [0, -27]
+                    });
 
                     if (markers[name]) {
                         markers[name].setLatLng(latlng);
                         markers[name].getPopup().setContent(`
-                            <div style="color:#333">
-                                <b>Anggota: ${name}</b><br>
-                                <small>Akurasi: ${pos.accuracy.toFixed(0)}m</small><br>
-                                <a href="${gMapsLink}" target="_blank" class="gmaps-btn">
-                                    <i class="fas fa-directions me-1"></i>Buka Rute Google Maps
-                                </a>
+                            <div class="text-center" style="width:180px">
+                                <img src="${photo}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:2px solid #00cfef">
+                                <br><b>${name}</b><br>
+                                <a href="${gMapsUrl}" target="_blank" class="gmaps-btn text-white">Buka Rute Google Maps</a>
                             </div>
                         `);
                     } else {
-                        markers[name] = L.marker(latlng).addTo(map)
-                            .bindTooltip(name, { permanent: true, direction: 'top', className: 'fw-bold' })
+                        markers[name] = L.marker(latlng, { icon: photoIcon }).addTo(map)
+                            .bindTooltip(name, { permanent: true, direction: 'top', className: 'fw-bold border-0 bg-transparent text-white' })
                             .bindPopup(`
-                                <div style="color:#333">
-                                    <b>Anggota: ${name}</b><br>
-                                    <small>Akurasi: ${pos.accuracy.toFixed(0)}m</small><br>
-                                    <a href="${gMapsLink}" target="_blank" class="gmaps-btn">
-                                        <i class="fas fa-directions me-1"></i>Buka Rute Google Maps
-                                    </a>
+                                <div class="text-center" style="width:180px">
+                                    <img src="${photo}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:2px solid #00cfef">
+                                    <br><b>${name}</b><br>
+                                    <a href="${gMapsUrl}" target="_blank" class="gmaps-btn text-white">Buka Rute Google Maps</a>
                                 </div>
-                            `).openPopup();
+                            `);
                     }
                 }
 
                 if (activeCount > 0) {
-                    map.fitBounds(bounds, { padding: [80, 80], maxZoom: 17 });
+                    map.fitBounds(bounds, { padding: [100, 100], maxZoom: 17 });
                     document.getElementById('userCount').textContent = `${activeCount} ANGGOTA ONLINE`;
                     document.getElementById('userCount').classList.remove('d-none');
                 }
