@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>👥 Lihat Lokasi Teman</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card text-center">
+                    <h1 class="mb-4"><i class="fas fa-users me-3"></i>Lihat Lokasi Teman</h1>
+                    <p class="lead mb-4">Masukkan Session ID untuk monitor lokasi real-time</p>
+                    
+                    <div class="row">
+                        <div class="col-md-8 mx-auto">
+                            <div class="input-group mb-4">
+                                <span class="input-group-text"><i class="fas fa-hashtag"></i></span>
+                                <input type="text" id="sessionId" class="form-control form-control-lg" placeholder="contoh: keluarga123" maxlength="20">
+                                <button id="loadBtn" class="btn btn-primary-custom"><i class="fas fa-eye"></i> Lihat Lokasi</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="status" class="status d-none mb-4"></div>
+                    
+                    <div id="map" class="mb-4"></div>
+                    
+                    <div id="locationsList" class="d-none">
+                        <h5 class="mb-3"><i class="fas fa-list"></i> Peserta Aktif</h5>
+                        <div id="members"></div>
+                    </div>
+                    
+                    <div id="info" class="mt-4 small text-muted">
+                        <p><i class="fas fa-clock"></i> Auto-refresh setiap 5 detik. Lokasi expired setelah 1 jam.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let map, markers = {};
+        const sessionIdInput = document.getElementById('sessionId');
+        const loadBtn = document.getElementById('loadBtn');
+        const statusDiv = document.getElementById('status');
+        const locationsList = document.getElementById('locationsList');
+        const membersDiv = document.getElementById('members');
+
+        // Parse URL param
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlSession = urlParams.get('session');
+        if (urlSession) {
+            sessionIdInput.value = urlSession;
+        }
+
+        // Init map
+        function initMap() {
+            map = L.map('map').setView([-6.2088, 106.8456], 10);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+        }
+
+        function updateStatus(message, type = 'info') {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type} d-block`;
+        }
+
+        function loadLocations() {
+            const session = sessionIdInput.value.trim();
+            if (!session) {
+                updateStatus('Masukkan Session ID dulu.', 'error');
+                return;
+            }
+
+            const key = 'locshare_' + session;
+            const dataStr = localStorage.getItem(key);
+            
+            if (!dataStr) {
+                updateStatus('Belum ada yang sharing di session ini. Minta teman buka index.html.', 'warning');
+                return;
+            }
+
+            try {
+                const data = JSON.parse(dataStr);
+                if (Date.now() > data.expires) {
+                    localStorage.removeItem(key);
+                    updateStatus('Session expired. Minta share ulang.', 'error');
+                    return;
+                }
+
+                // Update map marker
+                const pos = data.position;
+                if (markers[data.session]) {
+                    markers[data.session].setLatLng([pos.lat, pos.lng]);
+                } else {
+                    markers[data.session] = L.marker([pos.lat, pos.lng], {
+                        icon: L.divIcon({
+                            className: 'custom-marker',
+                            html: '<i class="fas fa-user-friends text-primary" style="font-size:24px;"></i>',
+                            iconSize: [30, 30]
+                        })
+                    }).addTo(map);
+                }
+                markers[data.session].bindPopup(`<b>${data.session}</b><br>
+                    📍 ${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}<br>
+                    📏 ${pos.accuracy.toFixed(0)}m<br>
+                    🕒 ${new Date(pos.timestamp).toLocaleString('id-ID')}`).openPopup();
+                
+                map.setView([pos.lat, pos.lng], 16);
+                
+                // Update list
+                updateMembersList(data);
+                updateStatus(`✅ Tracking ${data.session} - Update: ${new Date(pos.timestamp).toLocaleString('id-ID')}`, 'success');
+                
+            } catch(e) {
+                updateStatus('Data corrupt. Clear cache.', 'error');
+            }
+        }
+
+        function updateMembersList(data) {
+            locationsList.classList.remove('d-none');
+            membersDiv.innerHTML = `
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <h6 class="card-title"><i class="fas fa-user text-primary me-2"></i>${data.session}</h6>
+                        <p class="card-text small">
+                            📍 ${data.position.lat.toFixed(5)}, ${data.position.lng.toFixed(5)}<br>
+                            📏 ${data.position.accuracy}m • 🕒 ${new Date(data.position.timestamp).toLocaleString('id-ID')}
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Events
+        loadBtn.addEventListener('click', loadLocations);
+
+        sessionIdInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadLocations();
+        });
+
+        // Auto poll every 5s
+        setInterval(loadLocations, 5000);
+
+        // Init
+        initMap();
+        if (urlSession) {
+            setTimeout(loadLocations, 1000);
+        }
+        updateStatus('Masukkan Session ID atau pakai link share.', 'info');
+    </script>
+</body>
+</html>
