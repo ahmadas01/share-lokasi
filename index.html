@@ -20,7 +20,7 @@
                     <div class="row">
                         <div class="col-md-6 mb-4">
                             <label class="form-label fw-bold"><i class="fas fa-hashtag me-2"></i>Session ID (Nama Grup)</label>
-                            <input type="text" id="sessionId" class="form-control form-control-lg" placeholder="contoh: keluarga123" maxlength="20" value="keluarga123">
+                            <input type="text" id="sessionId" class="form-control form-control-lg" placeholder="contoh: keluarga123" maxlength="20" value="keluargaku">
                         </div>
                     </div>
                     
@@ -53,17 +53,15 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
     <script>
-        // ==========================================
-        // PASTE KODE FIREBASE CONFIG ANDA DI SINI!!!
-        // ==========================================
+        // Konfigurasi Asli Anda
         const firebaseConfig = {
-            apiKey: "API_KEY_ANDA",
-            authDomain: "PROJECT_ANDA.firebaseapp.com",
-            databaseURL: "https://PROJECT_ANDA-default-rtdb.firebaseio.com",
-            projectId: "PROJECT_ANDA",
-            storageBucket: "PROJECT_ANDA.appspot.com",
-            messagingSenderId: "SENDER_ID",
-            appId: "APP_ID"
+            apiKey: "AIzaSyDGTvoDJRKbDA9tslkAX3l6QNz0jFmOPXo",
+            authDomain: "share-lokasi-app.firebaseapp.com",
+            databaseURL: "https://share-lokasi-app-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "share-lokasi-app",
+            storageBucket: "share-lokasi-app.firebasestorage.app",
+            messagingSenderId: "639805343280",
+            appId: "1:639805343280:web:13c6e1cc94d480002b8ff5"
         };
         
         // Inisialisasi Firebase
@@ -103,7 +101,7 @@
             }
 
             getLocationBtn.disabled = true;
-            getLocationBtn.innerHTML = '<span class="loading"></span> Mendapatkan lokasi...';
+            getLocationBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Mendapatkan lokasi...';
 
             if (intervalId) navigator.geolocation.clearWatch(intervalId);
 
@@ -119,7 +117,9 @@
 
                     currentPos = { lat, lng, accuracy, timestamp: Date.now() };
                     updateMap();
-                    saveToDatabase(); // Memanggil fungsi penyimpanan ke Firebase
+                    
+                    // Eksekusi penyimpanan ke Firebase
+                    saveToDatabase(); 
                     updateShareUrl();
                     
                     getLocationBtn.disabled = false;
@@ -141,12 +141,15 @@
             map.setView([currentPos.lat, currentPos.lng], 16);
         }
 
-        // FUNGSI BARU: Mengirim data ke Firebase Database
         function saveToDatabase() {
             if (!currentPos || !sessionIdInput.value) return;
+            // Menyimpan ke database URL milik Anda
             database.ref('locations/' + sessionIdInput.value).set({
                 position: currentPos,
                 expires: Date.now() + 3600000 // Berlaku 1 jam
+            }).catch((error) => {
+                console.error("Firebase Error:", error);
+                updateStatus("Gagal terhubung ke database server.", "error");
             });
         }
 
