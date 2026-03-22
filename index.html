@@ -53,7 +53,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
     <script>
-        // Konfigurasi Firebase Anda
+        // Konfigurasi Asli Anda
         const firebaseConfig = {
             apiKey: "AIzaSyDGTvoDJRKbDA9tslkAX3l6QNz0jFmOPXo",
             authDomain: "share-lokasi-app.firebaseapp.com",
@@ -72,6 +72,9 @@
         let map, marker, currentPos = null;
         let shareUrl = '';
         let intervalId;
+        
+        // KUNCI UTAMA: Variabel penanda agar UI tidak kedip/spam
+        let isSharingLive = false; 
 
         const sessionIdInput = document.getElementById('sessionId');
         const getLocationBtn = document.getElementById('getLocationBtn');
@@ -107,29 +110,31 @@
             intervalId = navigator.geolocation.watchPosition(
                 pos => {
                     const { latitude: lat, longitude: lng, accuracy } = pos.coords;
-                    
-                    if (accuracy > 3000) {
-                        updateStatus(`Akurasi ${Math.round(accuracy)}m rendah. Matikan VPN.`, 'warning');
-                    } else {
-                        updateStatus(`✅ Berhasil! Mengirim lokasi ke server...`, 'success');
-                    }
-
                     currentPos = { lat, lng, accuracy, timestamp: Date.now() };
+                    
+                    // 1. UPDATE DATA (Jalan terus setiap saat)
                     updateMap();
                     saveToDatabase(); 
                     
-                    // FIX: Hanya eksekusi pembuat QR dan Link satu kali saja untuk cegah Crash
-                    if (shareSection.classList.contains('d-none')) {
-                        updateShareUrl();
+                    // 2. UPDATE TAMPILAN (Hanya dieksekusi SATU KALI saat pertama berhasil)
+                    if (!isSharingLive) {
+                        isSharingLive = true; // Kunci pintunya
+                        
+                        if (accuracy > 3000) {
+                            updateStatus(`Akurasi ${Math.round(accuracy)}m rendah. Matikan VPN.`, 'warning');
+                        } else {
+                            updateStatus(`✅ Berhasil! Mengirim lokasi ke server...`, 'success');
+                        }
+
+                        updateShareUrl(); // Munculkan Link & QR
+                        
+                        getLocationBtn.disabled = false;
+                        getLocationBtn.innerHTML = '<i class="fas fa-satellite-dish me-2"></i>Live: Sedang Berbagi Lokasi';
+                        getLocationBtn.classList.replace('btn-primary-custom', 'btn-success');
                     }
-                    
-                    getLocationBtn.disabled = false;
-                    getLocationBtn.innerHTML = '<i class="fas fa-satellite-dish me-2"></i>Live: Sedang Berbagi Lokasi';
-                    getLocationBtn.classList.replace('btn-primary-custom', 'btn-success');
                 },
                 err => {
-                    // Abaikan error sementara jika aplikasi sudah berjalan lancar
-                    if (shareSection.classList.contains('d-none')) {
+                    if (!isSharingLive) {
                         updateStatus('Error: ' + err.message, 'error');
                         getLocationBtn.disabled = false;
                         getLocationBtn.innerHTML = '<i class="fas fa-location-arrow me-2"></i>Coba Lagi';
@@ -150,16 +155,13 @@
             database.ref('locations/' + sessionIdInput.value).set({
                 position: currentPos,
                 expires: Date.now() + 3600000 
-            }).catch((error) => {
-                console.error("Firebase Error:", error);
-            });
+            }).catch((error) => console.error("Firebase Error:", error));
         }
 
         function updateShareUrl() {
             const session = sessionIdInput.value.trim();
             if (!session || !currentPos) return;
             
-            // FIX: Pembuat URL dinamis yang lebih kuat anti-gagal
             let basePath = window.location.pathname;
             if (basePath.endsWith('index.html')) basePath = basePath.replace('index.html', '');
             if (!basePath.endsWith('/')) basePath += '/';
@@ -167,14 +169,19 @@
             shareUrl = `${window.location.origin}${basePath}viewer.html?session=${session}`;
             shareUrlSpan.textContent = shareUrl;
             
-            // FIX: Bersihkan kontainer sebelum membuat QR agar RAM tidak bocor
-            qrCodeDiv.innerHTML = '';
-            QRCode.toCanvas(qrCodeDiv, shareUrl, { width: 200, margin: 1 });
+            // PERBAIKAN FATAL ERROR: Membuat elemen Canvas khusus untuk QR Code
+            qrCodeDiv.innerHTML = '<canvas id="qrCanvas"></canvas>';
+            const canvas = document.getElementById('qrCanvas');
+            
+            QRCode.toCanvas(canvas, shareUrl, { width: 200, margin: 1 }, function (error) {
+                if (error) console.error("QR Gagal Dibuat:", error);
+            });
             
             shareSection.classList.remove('d-none');
         }
 
         getLocationBtn.addEventListener('click', getLocation);
+        
         copyBtn.addEventListener('click', () => {
             navigator.clipboard.writeText(shareUrl).then(() => {
                 copyBtn.innerHTML = '<i class="fas fa-check"></i> Tersalin!';
@@ -182,8 +189,9 @@
             });
         });
         
-        // Reset link jika nama grup diubah
+        // Reset status jika user mengganti teks nama grup
         sessionIdInput.addEventListener('input', () => {
+            isSharingLive = false; 
             shareSection.classList.add('d-none');
             getLocationBtn.innerHTML = '<i class="fas fa-location-arrow me-2"></i>Update Sesi Baru';
             getLocationBtn.classList.replace('btn-success', 'btn-primary-custom');
