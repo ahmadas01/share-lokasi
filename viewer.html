@@ -3,41 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>👁️ Pantau Lokasi</title>
+    <title>👁️ Pantau Grup Tracking</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f4f7f6; }
-        #map { height: 70vh; width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .header-panel { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .status-badge { font-size: 0.9rem; padding: 8px 12px; border-radius: 20px; }
+        body { background-color: #f0f2f5; }
+        #map { height: 80vh; width: 100%; border-radius: 0 0 20px 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .monitor-card { background: white; border-radius: 20px; overflow: hidden; border: none; }
+        .header-box { padding: 20px; background: white; border-bottom: 1px solid #eee; }
+        .badge-live { background: #ff4757; color: white; padding: 5px 12px; border-radius: 50px; font-size: 0.75rem; animation: blink 1.5s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
     <div class="container py-4">
-        <div class="header-panel text-center">
-            <h3 class="mb-2"><i class="fas fa-satellite-dish text-primary me-2"></i>Live Tracking</h3>
-            <p class="text-muted mb-3">Memantau Session: <strong id="sessionName" class="text-dark">...</strong></p>
-            <div id="updateStatus" class="status-badge bg-warning text-dark d-inline-block">
-                <span class="spinner-border spinner-border-sm me-2"></span>Mencari sinyal dari server...
+        <div class="monitor-card">
+            <div class="header-box d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-0"><i class="fas fa-map-marked-alt text-primary me-2"></i>Monitor Grup</h4>
+                    <small class="text-muted">Grup: <span id="sessId" class="fw-bold">...</span></small>
+                </div>
+                <div id="userCount" class="badge-live d-none">0 Orang Live</div>
             </div>
+            <div id="map"></div>
         </div>
-
-        <div id="map"></div>
-        
-        <div class="text-center mt-4">
-            <a href="index.html" class="btn btn-outline-primary"><i class="fas fa-arrow-left me-2"></i>Buat Share Lokasi Sendiri</a>
+        <div class="text-center mt-3">
+            <a href="index.html" class="btn btn-sm btn-outline-secondary"><i class="fas fa-plus me-1"></i>Gabung Grup</a>
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
     <script>
-        // Konfigurasi Asli Anda
         const firebaseConfig = {
             apiKey: "AIzaSyDGTvoDJRKbDA9tslkAX3l6QNz0jFmOPXo",
             authDomain: "share-lokasi-app.firebaseapp.com",
@@ -48,26 +48,18 @@
             appId: "1:639805343280:web:13c6e1cc94d480002b8ff5"
         };
         
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
+        firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        let map, marker;
+        let map;
+        let markers = {}; 
         const urlParams = new URLSearchParams(window.location.search);
         const sessionId = urlParams.get('session');
-        const sessionNameEl = document.getElementById('sessionName');
-        const statusEl = document.getElementById('updateStatus');
 
-        if (!sessionId) {
-            sessionNameEl.textContent = "Tidak Valid";
-            statusEl.className = "status-badge bg-danger text-white d-inline-block";
-            statusEl.innerHTML = "<i class='fas fa-exclamation-triangle me-2'></i>Link tidak lengkap!";
-            document.getElementById('map').innerHTML = "<div class='text-center p-5'><h2>Gagal memuat peta.</h2><p>Pastikan Anda membuka link dari aplikasi utama.</p></div>";
-        } else {
-            sessionNameEl.textContent = sessionId;
+        if (sessionId) {
+            document.getElementById('sessId').textContent = sessionId;
             initMap();
-            startLiveTracking(); 
+            listenToGroup();
         }
 
         function initMap() {
@@ -75,46 +67,46 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         }
 
-        function startLiveTracking() {
-            // Mencari data di server berdasarkan Session ID
-            const targetRef = database.ref('locations/' + sessionId);
+        function listenToGroup() {
+            const groupRef = database.ref('locations/' + sessionId);
             
-            targetRef.on('value', (snapshot) => {
-                const data = snapshot.val();
-                
-                if (data) {
+            groupRef.on('value', (snapshot) => {
+                const users = snapshot.val();
+                if (!users) return;
+
+                let bounds = L.latLngBounds();
+                let activeCount = 0;
+
+                for (let name in users) {
+                    const data = users[name];
                     const pos = data.position;
-                    
+
+                    // Lewati data jika sudah basi (lebih dari 1 jam tidak update)
                     if (Date.now() > data.expires) {
-                        statusEl.className = "status-badge bg-secondary text-white d-inline-block";
-                        statusEl.innerHTML = "<i class='fas fa-clock me-2'></i>Sesi telah berakhir (Expired)";
-                        targetRef.off();
-                        return;
+                        if (markers[name]) { map.removeLayer(markers[name]); delete markers[name]; }
+                        continue;
                     }
 
-                    if (!marker) {
-                        marker = L.marker([pos.lat, pos.lng]).addTo(map);
-                        map.setView([pos.lat, pos.lng], 16);
+                    activeCount++;
+                    const latlng = [pos.lat, pos.lng];
+                    bounds.extend(latlng);
+
+                    if (markers[name]) {
+                        markers[name].setLatLng(latlng);
                     } else {
-                        marker.setLatLng([pos.lat, pos.lng]);
-                        if(!map.getBounds().contains([pos.lat, pos.lng])) {
-                            map.setView([pos.lat, pos.lng]); 
-                        }
+                        // Marker dengan nama user di atasnya
+                        markers[name] = L.marker(latlng).addTo(map)
+                            .bindTooltip(name, { permanent: true, direction: 'top', className: 'fw-bold' })
+                            .openTooltip();
                     }
-
-                    const timeString = new Date(pos.timestamp).toLocaleTimeString('id-ID');
-                    marker.bindPopup(`<b>Lokasi Target</b><br>Akurasi: ${pos.accuracy.toFixed(0)}m<br>Update: ${timeString}`);
-                    
-                    statusEl.className = "status-badge bg-success text-white d-inline-block";
-                    statusEl.innerHTML = `<i class='fas fa-check-circle me-2'></i>Live: Update terakhir ${timeString}`;
-                } else {
-                    statusEl.className = "status-badge bg-warning text-dark d-inline-block";
-                    statusEl.innerHTML = "<span class='spinner-border spinner-border-sm me-2'></span>Menunggu lokasi dibagikan...";
                 }
-            }, (error) => {
-                console.error("Firebase Read Error:", error);
-                statusEl.className = "status-badge bg-danger text-white d-inline-block";
-                statusEl.innerHTML = "<i class='fas fa-times-circle me-2'></i>Gagal terhubung ke server.";
+
+                // FITUR AUTO-ZOOM: Peta otomatis menyesuaikan posisi semua orang
+                if (activeCount > 0) {
+                    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+                    document.getElementById('userCount').textContent = `${activeCount} Orang Live`;
+                    document.getElementById('userCount').classList.remove('d-none');
+                }
             });
         }
     </script>
