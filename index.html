@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📍 Share Lokasi Grup</title>
+    <title>📍 Live Group Tracking - Satelit</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .card { border: none; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border-radius: 20px; padding: 25px; }
-        .btn-primary-custom { background: linear-gradient(135deg, #4a6ee0, #3550a8); color: white; border: none; font-weight: 600; transition: 0.3s; }
-        .btn-primary-custom:hover { opacity: 0.9; transform: translateY(-2px); color: white; }
-        .status { padding: 12px; border-radius: 10px; margin-bottom: 20px; font-weight: 600; font-size: 0.9rem; }
-        .status.success { background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
-        .status.error { background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
-        .share-link span { background: #f8f9fa; padding: 12px; border-radius: 10px; display: block; word-break: break-all; font-family: 'Courier New', Courier, monospace; border: 1px dashed #dee2e6; margin-top: 10px; }
-        #map { height: 300px; width: 100%; border-radius: 15px; margin-bottom: 20px; z-index: 1; border: 1px solid #ddd; }
+        body { background-color: #1a1a1a; color: #fff; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        .card { background: #2d2d2d; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 20px; padding: 25px; color: #fff; }
+        .form-control { background: #3d3d3d; border: 1px solid #444; color: #fff; }
+        .form-control:focus { background: #444; color: #fff; border-color: #4a6ee0; box-shadow: none; }
+        .btn-primary-custom { background: linear-gradient(135deg, #4a6ee0, #2e4cad); border: none; font-weight: 600; padding: 12px; }
+        #map { height: 300px; width: 100%; border-radius: 15px; margin-bottom: 20px; border: 2px solid #444; }
+        .share-link span { background: #3d3d3d; padding: 12px; border-radius: 10px; display: block; word-break: break-all; font-family: monospace; border: 1px dashed #666; margin-top: 10px; color: #00ff00; }
+        .status { padding: 12px; border-radius: 10px; margin-bottom: 20px; font-weight: 600; }
+        .status.success { background: #1b4332; color: #75ec9c; }
     </style>
 </head>
 <body>
@@ -24,40 +24,38 @@
         <div class="row justify-content-center">
             <div class="col-lg-6 col-md-8">
                 <div class="card text-center">
-                    <h2 class="mb-4"><i class="fas fa-users-cog text-primary me-2"></i>Grup Tracking</h2>
+                    <h2 class="mb-4"><i class="fas fa-satellite text-info me-2"></i>Grup Tracking Satelit</h2>
                     
                     <div class="text-start mb-3">
-                        <label class="form-label fw-bold small text-uppercase text-muted">Nama Anda</label>
-                        <input type="text" id="userName" class="form-control form-control-lg" placeholder="Masukkan nama (mis: Ahmad)" maxlength="15">
+                        <label class="form-label fw-bold small text-muted">Nama Anda</label>
+                        <input type="text" id="userName" class="form-control form-control-lg" placeholder="Masukkan nama" maxlength="15">
                     </div>
 
                     <div class="text-start mb-4">
-                        <label class="form-label fw-bold small text-uppercase text-muted">Session ID (Nama Grup)</label>
+                        <label class="form-label fw-bold small text-muted">Session ID (Nama Grup)</label>
                         <input type="text" id="sessionId" class="form-control form-control-lg" placeholder="mis: keluargaku" maxlength="20" value="keluargaku">
                     </div>
                     
-                    <button id="getLocationBtn" class="btn btn-primary-custom btn-lg w-100 mb-4 py-3">
-                        <i class="fas fa-location-arrow me-2"></i>Aktifkan Share Lokasi
+                    <button id="getLocationBtn" class="btn btn-primary-custom btn-lg w-100 mb-4">
+                        <i class="fas fa-broadcast-tower me-2"></i>Mulai Berbagi Lokasi
                     </button>
                     
                     <div id="status" class="status d-none"></div>
                     <div id="map"></div>
                     
                     <div id="shareSection" class="d-none mt-4 text-start">
-                        <hr>
-                        <h5 class="mb-3 text-center"><i class="fas fa-share-alt me-2 text-primary"></i>Bagikan ke Grup</h5>
+                        <h5 class="mb-3 text-center text-info">Link Monitoring Grup</h5>
                         <div id="qrCode" class="mb-3 d-flex justify-content-center"></div>
                         <div class="share-link mb-3">
-                            <span id="shareUrl" class="text-muted small"></span>
+                            <span id="shareUrl"></span>
                         </div>
-                        <button id="copyBtn" class="btn btn-success w-100 py-2"><i class="fas fa-copy me-2"></i>Salin Link Grup</button>
+                        <button id="copyBtn" class="btn btn-outline-info w-100"><i class="fas fa-copy me-2"></i>Salin Link Grup</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -78,34 +76,29 @@
 
         let map, marker, currentPos = null;
         let isSharingLive = false; 
-        let watchId;
 
         const userNameInput = document.getElementById('userName');
         const sessionIdInput = document.getElementById('sessionId');
         const getLocationBtn = document.getElementById('getLocationBtn');
         const statusDiv = document.getElementById('status');
-        const shareSection = document.getElementById('shareSection');
 
         function initMap() {
             map = L.map('map').setView([-6.2088, 106.8456], 15);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            marker = L.marker([-6.2088, 106.8456]).addTo(map).bindPopup('Menunggu lokasi...').openPopup();
-        }
-
-        function updateStatus(msg, type) {
-            statusDiv.textContent = msg;
-            statusDiv.className = `status ${type} d-block`;
-            setTimeout(() => statusDiv.classList.add('d-none'), 5000);
+            // MENGGUNAKAN MODE SATELIT REAL
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{y}/{x}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EBP, and the GIS User Community'
+            }).addTo(map);
+            marker = L.marker([-6.2088, 106.8456]).addTo(map);
         }
 
         function startSharing() {
             const user = userNameInput.value.trim();
-            if (!user) { alert("Masukkan nama Anda terlebih dahulu!"); return; }
+            if (!user) { alert("Isi nama dulu!"); return; }
 
             getLocationBtn.disabled = true;
-            getLocationBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menghubungkan...';
+            getLocationBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Menghubungkan...';
 
-            watchId = navigator.geolocation.watchPosition(
+            navigator.geolocation.watchPosition(
                 pos => {
                     const { latitude: lat, longitude: lng, accuracy } = pos.coords;
                     currentPos = { lat, lng, accuracy, timestamp: Date.now() };
@@ -113,7 +106,6 @@
                     marker.setLatLng([lat, lng]);
                     map.setView([lat, lng], 16);
                     
-                    // SAVE TO FIREBASE: locations/grup/nama-user
                     database.ref(`locations/${sessionIdInput.value}/${user}`).set({
                         userName: user,
                         position: currentPos,
@@ -122,20 +114,14 @@
 
                     if (!isSharingLive) {
                         isSharingLive = true;
-                        updateStatus("✅ Live Tracking Aktif!", "success");
+                        statusDiv.textContent = "✅ Satelit Terkoneksi!";
+                        statusDiv.className = "status success d-block";
                         showShareUI();
-                        getLocationBtn.disabled = false;
-                        getLocationBtn.innerHTML = '<i class="fas fa-check-circle me-2"></i>Live: Sedang Berbagi';
-                        getLocationBtn.classList.replace('btn-primary-custom', 'btn-success');
+                        getLocationBtn.innerHTML = '<i class="fas fa-check-circle me-2"></i>Live Satelit Aktif';
+                        getLocationBtn.className = "btn btn-success btn-lg w-100 mb-4";
                     }
                 },
-                err => {
-                    if (!isSharingLive) {
-                        updateStatus("Gagal akses GPS: " + err.message, "error");
-                        getLocationBtn.disabled = false;
-                        getLocationBtn.innerHTML = "Coba Lagi";
-                    }
-                },
+                err => { alert("GPS Error: " + err.message); },
                 { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
             );
         }
@@ -147,14 +133,14 @@
             
             const url = `${window.location.origin}${path}viewer.html?session=${sessionIdInput.value}`;
             document.getElementById('shareUrl').textContent = url;
-            document.getElementById('qrCode').innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}" style="border-radius:10px; border:1px solid #ddd;">`;
-            shareSection.classList.remove('d-none');
+            document.getElementById('qrCode').innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}" style="border: 2px solid #00cfef; border-radius: 10px;">`;
+            document.getElementById('shareSection').classList.remove('d-none');
         }
 
         getLocationBtn.addEventListener('click', startSharing);
         document.getElementById('copyBtn').addEventListener('click', () => {
             navigator.clipboard.writeText(document.getElementById('shareUrl').textContent);
-            alert("Link grup berhasil disalin!");
+            alert("Link grup tersalin!");
         });
 
         initMap();
