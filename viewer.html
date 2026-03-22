@@ -20,7 +20,7 @@
             <h3 class="mb-2"><i class="fas fa-satellite-dish text-primary me-2"></i>Live Tracking</h3>
             <p class="text-muted mb-3">Memantau Session: <strong id="sessionName" class="text-dark">...</strong></p>
             <div id="updateStatus" class="status-badge bg-warning text-dark d-inline-block">
-                <i class="fas fa-spinner fa-spin me-2"></i>Mencari sinyal dari server...
+                <span class="spinner-border spinner-border-sm me-2"></span>Mencari sinyal dari server...
             </div>
         </div>
 
@@ -32,22 +32,20 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
     <script>
-        // ==========================================
-        // PASTE KODE FIREBASE CONFIG ANDA DI SINI!!!
-        // (Sama persis seperti yang di index.html)
-        // ==========================================
+        // Konfigurasi Asli Anda
         const firebaseConfig = {
-            apiKey: "API_KEY_ANDA",
-            authDomain: "PROJECT_ANDA.firebaseapp.com",
-            databaseURL: "https://PROJECT_ANDA-default-rtdb.firebaseio.com",
-            projectId: "PROJECT_ANDA",
-            storageBucket: "PROJECT_ANDA.appspot.com",
-            messagingSenderId: "SENDER_ID",
-            appId: "APP_ID"
+            apiKey: "AIzaSyDGTvoDJRKbDA9tslkAX3l6QNz0jFmOPXo",
+            authDomain: "share-lokasi-app.firebaseapp.com",
+            databaseURL: "https://share-lokasi-app-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "share-lokasi-app",
+            storageBucket: "share-lokasi-app.firebasestorage.app",
+            messagingSenderId: "639805343280",
+            appId: "1:639805343280:web:13c6e1cc94d480002b8ff5"
         };
         
         if (!firebase.apps.length) {
@@ -65,11 +63,11 @@
             sessionNameEl.textContent = "Tidak Valid";
             statusEl.className = "status-badge bg-danger text-white d-inline-block";
             statusEl.innerHTML = "<i class='fas fa-exclamation-triangle me-2'></i>Link tidak lengkap!";
-            document.getElementById('map').innerHTML = "<div class='text-center p-5'><h2>Gagal memuat peta.</h2></div>";
+            document.getElementById('map').innerHTML = "<div class='text-center p-5'><h2>Gagal memuat peta.</h2><p>Pastikan Anda membuka link dari aplikasi utama.</p></div>";
         } else {
             sessionNameEl.textContent = sessionId;
             initMap();
-            startLiveTracking(); // Mulai mendengarkan server
+            startLiveTracking(); 
         }
 
         function initMap() {
@@ -77,11 +75,10 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         }
 
-        // FUNGSI BARU: Mendengarkan perubahan data dari Firebase secara Real-time
         function startLiveTracking() {
+            // Mencari data di server berdasarkan Session ID
             const targetRef = database.ref('locations/' + sessionId);
             
-            // .on('value') akan otomatis tereksekusi setiap kali pengirim bergerak!
             targetRef.on('value', (snapshot) => {
                 const data = snapshot.val();
                 
@@ -100,7 +97,6 @@
                         map.setView([pos.lat, pos.lng], 16);
                     } else {
                         marker.setLatLng([pos.lat, pos.lng]);
-                        // Auto-geser peta jika target keluar layar
                         if(!map.getBounds().contains([pos.lat, pos.lng])) {
                             map.setView([pos.lat, pos.lng]); 
                         }
@@ -113,8 +109,12 @@
                     statusEl.innerHTML = `<i class='fas fa-check-circle me-2'></i>Live: Update terakhir ${timeString}`;
                 } else {
                     statusEl.className = "status-badge bg-warning text-dark d-inline-block";
-                    statusEl.innerHTML = "<i class='fas fa-spinner fa-spin me-2'></i>Menunggu lokasi dibagikan...";
+                    statusEl.innerHTML = "<span class='spinner-border spinner-border-sm me-2'></span>Menunggu lokasi dibagikan...";
                 }
+            }, (error) => {
+                console.error("Firebase Read Error:", error);
+                statusEl.className = "status-badge bg-danger text-white d-inline-block";
+                statusEl.innerHTML = "<i class='fas fa-times-circle me-2'></i>Gagal terhubung ke server.";
             });
         }
     </script>
