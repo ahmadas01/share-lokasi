@@ -84,7 +84,8 @@
         function updateStatus(message, type = 'info') {
             statusDiv.textContent = message;
             statusDiv.className = `status ${type} d-block`;
-            setTimeout(() => statusDiv.classList.add('d-none'), 5000);
+            // Biarkan pesan sukses/warning tampil lebih lama agar terbaca
+            setTimeout(() => statusDiv.classList.add('d-none'), 8000); 
         }
 
         function getLocation() {
@@ -96,7 +97,6 @@
             getLocationBtn.disabled = true;
             getLocationBtn.innerHTML = '<span class="loading"></span> Mendapatkan lokasi...';
 
-            // Bersihkan pantauan lokasi sebelumnya jika ada
             if (intervalId) {
                 navigator.geolocation.clearWatch(intervalId);
             }
@@ -105,8 +105,12 @@
                 pos => {
                     const { latitude: lat, longitude: lng, accuracy } = pos.coords;
                     
-                    if (accuracy > 100) {
-                        updateStatus(`Akurasi ${Math.round(accuracy)}m terlalu rendah. Coba di luar ruangan.`, 'warning');
+                    // Modifikasi: Angka akurasi dinaikkan ke 3000 agar lolos pengecekan VPN/Desktop
+                    if (accuracy > 3000) {
+                        updateStatus(`Akurasi ${Math.round(accuracy)}m sangat rendah. Matikan VPN untuk hasil akurat.`, 'warning');
+                        // return; -> Dihapus agar peta tetap muncul walaupun meleset
+                    } else {
+                        updateStatus(`✅ Lokasi didapat! Akurasi: ${Math.round(accuracy)}m`, 'success');
                     }
 
                     currentPos = { lat, lng, accuracy, timestamp: Date.now() };
@@ -114,11 +118,9 @@
                     saveToStorage();
                     updateShareUrl();
                     
-                    updateStatus(`✅ Lokasi didapat! Akurasi: ${Math.round(accuracy)}m`, 'success');
-                    
-                    // Kembalikan tombol ke semula
+                    // Kembalikan tombol ke semula dengan status berjalan
                     getLocationBtn.disabled = false;
-                    getLocationBtn.innerHTML = '<i class="fas fa-location-arrow me-2"></i>Mulai Share Lokasi';
+                    getLocationBtn.innerHTML = '<i class="fas fa-location-arrow me-2"></i>Status: Berbagi Lokasi...';
                     refreshBtn.querySelector('.loading')?.classList.add('d-none');
                 },
                 err => {
@@ -131,7 +133,6 @@
                     }
                     updateStatus(msg, 'error');
                     
-                    // Reset tombol agar bisa diklik lagi jika gagal
                     getLocationBtn.disabled = false;
                     getLocationBtn.innerHTML = '<i class="fas fa-location-arrow me-2"></i>Coba Lagi';
                     refreshBtn.querySelector('.loading')?.classList.add('d-none');
@@ -194,7 +195,7 @@
 
         refreshBtn.addEventListener('click', () => {
             refreshBtn.querySelector('.loading')?.classList.remove('d-none');
-            getLocation(); // Re-trigger pencarian lokasi
+            getLocation();
         });
 
         sessionIdInput.addEventListener('input', () => {
