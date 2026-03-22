@@ -20,7 +20,7 @@
             <h3 class="mb-2"><i class="fas fa-satellite-dish text-primary me-2"></i>Live Tracking</h3>
             <p class="text-muted mb-3">Memantau Session: <strong id="sessionName" class="text-dark">...</strong></p>
             <div id="updateStatus" class="status-badge bg-warning text-dark d-inline-block">
-                <i class="fas fa-spinner fa-spin me-2"></i>Mencari sinyal lokasi...
+                <i class="fas fa-spinner fa-spin me-2"></i>Mencari sinyal dari server...
             </div>
         </div>
 
@@ -32,72 +32,90 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <script>
+        // ==========================================
+        // PASTE KODE FIREBASE CONFIG ANDA DI SINI!!!
+        // (Sama persis seperti yang di index.html)
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "API_KEY_ANDA",
+            authDomain: "PROJECT_ANDA.firebaseapp.com",
+            databaseURL: "https://PROJECT_ANDA-default-rtdb.firebaseio.com",
+            projectId: "PROJECT_ANDA",
+            storageBucket: "PROJECT_ANDA.appspot.com",
+            messagingSenderId: "SENDER_ID",
+            appId: "APP_ID"
+        };
+        
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const database = firebase.database();
+
         let map, marker;
         const urlParams = new URLSearchParams(window.location.search);
         const sessionId = urlParams.get('session');
         const sessionNameEl = document.getElementById('sessionName');
         const statusEl = document.getElementById('updateStatus');
 
-        // Jika tidak ada session ID di URL
         if (!sessionId) {
             sessionNameEl.textContent = "Tidak Valid";
             statusEl.className = "status-badge bg-danger text-white d-inline-block";
             statusEl.innerHTML = "<i class='fas fa-exclamation-triangle me-2'></i>Link tidak lengkap!";
-            document.getElementById('map').innerHTML = "<div class='text-center p-5'><h2>Gagal memuat peta.</h2><p>Pastikan Anda membuka link dari hasil generate aplikasi utama.</p></div>";
+            document.getElementById('map').innerHTML = "<div class='text-center p-5'><h2>Gagal memuat peta.</h2></div>";
         } else {
             sessionNameEl.textContent = sessionId;
             initMap();
-            // Lakukan pengecekan data setiap 3 detik
-            checkLocation();
-            setInterval(checkLocation, 3000);
+            startLiveTracking(); // Mulai mendengarkan server
         }
 
         function initMap() {
-            // Default view jika belum dapat lokasi (Indonesia)
             map = L.map('map').setView([-2.5489, 118.0149], 5);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap'
-            }).addTo(map);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         }
 
-        function checkLocation() {
-            // Membaca data dari localStorage
-            const dataStr = localStorage.getItem('locshare_' + sessionId);
+        // FUNGSI BARU: Mendengarkan perubahan data dari Firebase secara Real-time
+        function startLiveTracking() {
+            const targetRef = database.ref('locations/' + sessionId);
             
-            if (dataStr) {
-                const data = JSON.parse(dataStr);
-                const pos = data.position;
+            // .on('value') akan otomatis tereksekusi setiap kali pengirim bergerak!
+            targetRef.on('value', (snapshot) => {
+                const data = snapshot.val();
                 
-                // Cek apakah data sudah expired (lebih dari 1 jam)
-                if (Date.now() > data.expires) {
-                    statusEl.className = "status-badge bg-secondary text-white d-inline-block";
-                    statusEl.innerHTML = "<i class='fas fa-clock me-2'></i>Sesi telah berakhir (Expired)";
-                    return;
-                }
-
-                // Update Peta
-                if (!marker) {
-                    marker = L.marker([pos.lat, pos.lng]).addTo(map);
-                    map.setView([pos.lat, pos.lng], 16);
-                } else {
-                    marker.setLatLng([pos.lat, pos.lng]);
-                    // Auto-pan jika target bergerak menjauh dari layar
-                    if(!map.getBounds().contains([pos.lat, pos.lng])) {
-                        map.setView([pos.lat, pos.lng]);
+                if (data) {
+                    const pos = data.position;
+                    
+                    if (Date.now() > data.expires) {
+                        statusEl.className = "status-badge bg-secondary text-white d-inline-block";
+                        statusEl.innerHTML = "<i class='fas fa-clock me-2'></i>Sesi telah berakhir (Expired)";
+                        targetRef.off();
+                        return;
                     }
+
+                    if (!marker) {
+                        marker = L.marker([pos.lat, pos.lng]).addTo(map);
+                        map.setView([pos.lat, pos.lng], 16);
+                    } else {
+                        marker.setLatLng([pos.lat, pos.lng]);
+                        // Auto-geser peta jika target keluar layar
+                        if(!map.getBounds().contains([pos.lat, pos.lng])) {
+                            map.setView([pos.lat, pos.lng]); 
+                        }
+                    }
+
+                    const timeString = new Date(pos.timestamp).toLocaleTimeString('id-ID');
+                    marker.bindPopup(`<b>Lokasi Target</b><br>Akurasi: ${pos.accuracy.toFixed(0)}m<br>Update: ${timeString}`);
+                    
+                    statusEl.className = "status-badge bg-success text-white d-inline-block";
+                    statusEl.innerHTML = `<i class='fas fa-check-circle me-2'></i>Live: Update terakhir ${timeString}`;
+                } else {
+                    statusEl.className = "status-badge bg-warning text-dark d-inline-block";
+                    statusEl.innerHTML = "<i class='fas fa-spinner fa-spin me-2'></i>Menunggu lokasi dibagikan...";
                 }
-
-                const timeString = new Date(pos.timestamp).toLocaleTimeString('id-ID');
-                marker.bindPopup(`<b>Lokasi Target</b><br>Akurasi: ${pos.accuracy.toFixed(0)}m<br>Diupdate: ${timeString}`).openPopup();
-
-                statusEl.className = "status-badge bg-success text-white d-inline-block";
-                statusEl.innerHTML = `<i class='fas fa-check-circle me-2'></i>Live: Update terakhir ${timeString}`;
-
-            } else {
-                statusEl.className = "status-badge bg-warning text-dark d-inline-block";
-                statusEl.innerHTML = "<i class='fas fa-spinner fa-spin me-2'></i>Menunggu update lokasi target...";
-            }
+            });
         }
     </script>
 </body>
