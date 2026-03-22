@@ -39,4 +39,4 @@ code location_sharing/
 - Accuracy ~10-50m. Tidak 100% akurat di dalam ruangan.
 - Hapus session kapan saja.
 
-**Buatan BLACKBOXAI - Gratis & Open Source!** ⭐
+**Buatan ahmadas - Gratis & Open Source!** ⭐
